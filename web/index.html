@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Membership entries — audit view</title>
+<style>
+  :root{--bg:#fbfaf8;--surface:#fff;--ink:#15181c;--soft:#565c66;--rule:#dcd8d2;--accent:#2c4a5a;--good:#2f6b4f;--goodbg:#e8f1ec;--warn:#8a6420;--warnbg:#f7f0e2}
+  @media (prefers-color-scheme:dark){:root{--bg:#131519;--surface:#1a1d22;--ink:#e9e7e2;--soft:#99a0ab;--rule:#2e333b;--accent:#8db4c8;--good:#7fbf9d;--goodbg:#1a2620;--warn:#d6ae6a;--warnbg:#2a2418;color-scheme:dark}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  .wrap{max-width:60rem;margin:0 auto;padding:40px 20px 80px}
+  h1{font-size:1.5rem;margin:0 0 4px}
+  .sub{color:var(--soft);margin:0 0 28px;font-size:.95rem}
+  .card{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:18px 20px;margin-bottom:16px}
+  table{border-collapse:collapse;width:100%;font-size:.88rem}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+  th{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:2px;font-family:ui-monospace,Menlo,monospace}
+  .pill.good{background:var(--goodbg);color:var(--good)}
+  .pill.warn{background:var(--warnbg);color:var(--warn)}
+  .total{font-size:2rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+  .row{display:flex;flex-wrap:wrap;gap:24px;align-items:baseline}
+  button,input,select{font:inherit;padding:7px 11px;border:1px solid var(--rule);border-radius:3px;background:var(--surface);color:var(--ink)}
+  button{background:var(--accent);color:var(--bg);border-color:var(--accent);cursor:pointer}
+  .muted{color:var(--soft);font-size:.85rem}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:.85em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Membership entries</h1>
+  <p class="sub">Every entry is a ledger row with a reason and the event that caused it. Nothing here is a counter.</p>
+
+  <div class="card">
+    <div class="row">
+      <div style="flex:1;min-width:14rem">
+        <label class="muted" for="member">Member</label><br>
+        <select id="member" style="width:100%;margin-top:4px"></select>
+      </div>
+      <div>
+        <label class="muted" for="period">Export quarter</label><br>
+        <input id="period" value="2027-Q2" style="width:9rem;margin-top:4px">
+      </div>
+      <button id="export">Download CSV</button>
+    </div>
+  </div>
+
+  <div class="card" id="summary" hidden>
+    <div class="row">
+      <div><div class="muted">Entries this member</div><div class="total" id="total">0</div></div>
+      <div><div class="muted">Tier</div><div id="tier">—</div></div>
+      <div><div class="muted">Billing</div><div id="billing">—</div></div>
+      <div><div class="muted">VIP Early Bird</div><div id="vip">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Period</th><th>Reason</th><th>Source event</th><th class="n">Entries</th><th>Credited</th></tr></thead>
+      <tbody id="ledger"><tr><td colspan="5" class="muted">Select a member.</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function loadMembers() {
+  const res = await fetch('/members');
+  const list = await res.json();
+  const sel = $('member');
+  sel.innerHTML = '';
+  if (!list.length) {
+    sel.innerHTML = '<option value="">no members yet</option>';
+    return;
+  }
+  for (const m of list) {
+    const o = document.createElement('option');
+    o.value = m.id;
+    o.textContent = `${m.email} — ${m.entries} entries`;
+    sel.appendChild(o);
+  }
+  loadLedger(sel.value);
+}
+
+async function loadLedger(id) {
+  if (!id) return;
+  const res = await fetch(`/members/${id}/entries`);
+  const data = await res.json();
+  $('summary').hidden = false;
+  $('total').textContent = data.total;
+  $('tier').textContent = data.member.tier;
+  $('billing').innerHTML = `<span class="pill ${data.member.billingStatus === 'active' ? 'good' : 'warn'}">${data.member.billingStatus}</span>`;
+  $('vip').textContent = data.member.vipEarlyBird ? 'yes' : 'no';
+
+  const tb = $('ledger');
+  tb.innerHTML = '';
+  if (!data.ledger.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="muted">No entries credited yet.</td></tr>';
+    return;
+  }
+  for (const r of data.ledger) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.period}</td><td>${r.reason}</td>` +
+      `<td><code>${r.source_event}</code></td>` +
+      `<td class="n">${r.entries}</td>` +
+      `<td class="muted">${new Date(r.created_at).toLocaleString()}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+$('member').addEventListener('change', e => loadLedger(e.target.value));
+$('export').addEventListener('click', () => {
+  window.location = `/export/quarterly?period=${encodeURIComponent($('period').value)}`;
+});
+loadMembers();
+</script>
+</body>
+</html>

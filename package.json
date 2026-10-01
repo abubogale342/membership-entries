@@ -1,0 +1,25 @@
+{
+  "name": "membership-entries",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tiered membership billing with an idempotent entry ledger. Authorize.Net CIM + ARB against sandbox.",
+  "main": "src/app.js",
+  "scripts": {
+    "migrate": "node scripts/migrate.js",
+    "start": "node src/app.js",
+    "test": "node test/run.js",
+    "test:replay": "node test/replay-webhook.js",
+    "demo": "node scripts/demo.js",
+    "diagnose": "node scripts/diagnose.js",
+    "worker": "node src/worker.js",
+    "inspect": "node scripts/inspect-ids.js",
+    "status": "node scripts/status.js",
+    "reset": "node scripts/reset.js"
+  },
+  "dependencies": {
+    "authorizenet": "^1.0.8",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
